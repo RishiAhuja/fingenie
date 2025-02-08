@@ -7,6 +7,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class AuthRepository {
+  static Future<void> init() async {
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(UserModelAdapter());
+    }
+    await Hive.openBox<UserModel>(userBoxName);
+  }
+
   final Dio _dio;
   final Box<UserModel> _userBox;
 
@@ -22,14 +29,22 @@ class AuthRepository {
   Future<UserModel> signUp(SignUpRequest request) async {
     try {
       AppLogger.info('signUp: Making signup request');
-      final response = await _dio.post(
-        '$apiUrl/auth/signup',
-        data: request.toJson(),
-      );
+      // final response = await _dio.post(
+      //   '$apiUrl/auth/signup',
+      //   data: request.toJson(),
+      // );
 
       AppLogger.success('signUp: Signup request successful');
       AppLogger.info('signUp: Saving user to local storage');
-      final user = UserModel.fromJson(response.data);
+      // final user = UserModel.fromJson(response.data);
+      final user = UserModel(
+          id: 'id123',
+          name: request.name,
+          email: request.email,
+          phoneNumber: request.phoneNumber,
+          createdAt: DateTime.now(),
+          isLoggedIn: true,
+          token: 'jwt');
       await _userBox.put('current_user', user);
       AppLogger.success('signUp: User saved to local storage');
       return user;
@@ -37,6 +52,9 @@ class AuthRepository {
       AppLogger.error(
           'signUp: DioException: ${e.message} at status code: ${e.response?.statusCode}');
       throw _handleDioError(e);
+    } catch (e) {
+      AppLogger.error('signUp: Error: $e');
+      throw Exception('Failed to sign up. Please try again.');
     }
   }
 

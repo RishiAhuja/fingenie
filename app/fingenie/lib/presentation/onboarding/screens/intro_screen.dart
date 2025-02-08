@@ -1,11 +1,47 @@
+import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
+import 'package:fingenie/presentation/home/screens/home.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:introduction_screen/introduction_screen.dart';
 import 'package:fingenie/core/config/theme/app_colors.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class IntroScreen extends StatelessWidget {
+class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
+
+  @override
+  State<IntroScreen> createState() => _IntroScreenState();
+}
+
+class _IntroScreenState extends State<IntroScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkIntroStatus();
+  }
+
+  Future<void> _checkIntroStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
+
+    if (hasSeenIntro && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (context) => ExpenseBloc(),
+              ),
+              // Add any other required providers here
+            ],
+            child: const HomeScreen(),
+          ),
+        ),
+      );
+    }
+  }
 
   Future<void> _onIntroEnd(BuildContext context) async {
     // Save that user has seen the intro

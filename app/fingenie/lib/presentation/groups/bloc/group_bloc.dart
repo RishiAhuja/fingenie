@@ -68,7 +68,6 @@ class GroupBloc extends Bloc<GroupEvent, GroupState> {
         },
       );
 
-      // Update the selected group with new members
       final updatedGroup = state.selectedGroup?.copyWith(
         memberIds: [...state.selectedGroup!.memberIds, ...event.memberIds],
       );

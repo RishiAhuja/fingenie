@@ -125,6 +125,7 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                         ),
                         child: GroupDetailScreen(
                           group: state.selectedGroup!,
+                          apiUrl: dotenv.env['API_URL'] ?? '',
                         ),
                       ),
                     ),

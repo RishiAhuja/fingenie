@@ -1,23 +1,30 @@
-// home_screen.dart
-import 'package:fingenie/presentation/contacts/screens/contacts.dart';
+import 'package:fingenie/presentation/activity/screens/activity_screen.dart';
 import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
 import 'package:fingenie/presentation/groups/screens/creat_group_modal.dart';
-import 'package:fingenie/presentation/ocr/screens/ocr.dart';
+import 'package:fingenie/presentation/groups/screens/group_screens.dart';
+import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
+import 'package:fingenie/presentation/profile/screen/profile_page.dart';
+import 'package:fingenie/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 
-import '../bloc/expense_bloc.dart';
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = [
+    const GroupsScreen(),
+    const ActivityScreen(),
+    const ProfileScreen(),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +34,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        backgroundColor: Colors.grey[50],
+        elevation: 0,
+        title: const Text(
+          'Split wise.',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.group_add),
@@ -50,140 +68,169 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
+            icon:
+                const Icon(Icons.notifications_outlined, color: Colors.black87),
             onPressed: () {},
           ),
         ],
-        title: const Text(
-          'Fin Genie.',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: BlocBuilder<ExpenseBloc, ExpenseState>(
-            builder: (context, state) {
-              if (state is ExpenseLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (state is ExpenseLoaded) {
-                return Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    GradientCard(
-                      balance: 20.0,
-                      // balance: state.totalBalance,
-                      // onAddExpense: () => _showAddExpenseDialog(context),
-                      onAddExpense: () {},
-                    ),
-                    const SizedBox(height: 20),
-                    _buildBalanceCards(state),
-                    const SizedBox(height: 20),
-                    _buildExpensesList(state.expenses),
-                    const SizedBox(
-                      height: 20,
-                    ),
-                    TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const OcrScreen()));
-                        },
-                        child: const Text('OCR')),
-                    TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const ContactsScreen()));
-                        },
-                        child: const Text('Contacts'))
-                  ],
-                );
-              }
-              return const Center(child: Text('Something went wrong'));
-            },
-          ),
-        ),
+      body: _shownScreen(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          AppLogger.info('BottomNav index: $index');
+
+          setState(() => _currentIndex = index);
+        },
+        selectedItemColor: const Color(0xFF2DD4BF),
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.groups), label: 'Groups'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.trending_up), label: 'Activity'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
       ),
     );
   }
-}
 
-Widget _buildBalanceCards(ExpenseState state) {
-  return const Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      BalanceCard(
-        title: 'YOU OWE',
-        amount: 100.0,
-        // amount: state.,
-        subtitle: 'You should Pay to others',
-        icon: Icons.arrow_upward,
-        iconColor: Colors.red,
-      ),
-      BalanceCard(
-        title: 'YOU OWED',
-        // amount: state.youOwed,
-        amount: 50.0,
-        subtitle: 'Others should Pay to you',
-        icon: Icons.arrow_downward,
-        iconColor: Colors.green,
-      ),
-    ],
-  );
-}
-
-Widget _buildExpensesList(List<int> expenses) {
-  return Expanded(
-    child: ListView.separated(
-      itemCount: expenses.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final expense = expenses[index];
-        return ExpenseItem(
-          icon: 'expense.icon',
-          title: 'expense.title',
-          amount: 100.0,
-          date: DateTime(10, 10, 10),
-          onTap: () => Navigator.pushNamed(
-            context,
-            '/expense-detail',
-            arguments: expense,
-          ),
-        );
-      },
-    ),
-  );
-}
-
-class BalanceCard extends StatelessWidget {
-  final String title;
-  final double amount;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-
-  const BalanceCard({
-    super.key,
-    required this.title,
-    required this.amount,
-    required this.subtitle,
-    required this.icon,
-    required this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildBalanceCard(ExpenseState state) {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.43,
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2DD4BF), Color(0xFFFCD34D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Balance',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                '+6.5%',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '\$76,256.91',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('+ ADD EXPENSE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _shownScreen() {
+    if (_currentIndex == 0) {
+      return SafeArea(
+        child: BlocBuilder<ExpenseBloc, ExpenseState>(
+          builder: (context, state) {
+            if (state is ExpenseLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (state is ExpenseLoaded) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBalanceCard(state),
+                    const SizedBox(height: 24),
+                    _buildBalanceOverview(),
+                    const SizedBox(height: 24),
+                    _buildGroupsList(),
+                    const SizedBox(height: 16),
+                    _buildRecentExpenses(state.expenses),
+                  ],
+                ),
+              );
+            }
+            return const Center(child: Text('Something went wrong'));
+          },
+        ),
+      );
+    } else {
+      return _screens[_currentIndex - 1];
+    }
+  }
+
+  Widget _buildBalanceOverview() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildBalanceCard2(
+            'YOU OWE',
+            '\$562.72',
+            'You should Pay to others',
+            Icons.arrow_upward,
+            Colors.red,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildBalanceCard2(
+            'YOU\'RE OWED',
+            '\$38822.72',
+            'Others should Pay to you',
+            Icons.arrow_downward,
+            Colors.green,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBalanceCard2(
+    String title,
+    String amount,
+    String subtitle,
+    IconData icon,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -191,17 +238,17 @@ class BalanceCard extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: Offset(0, 5),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
           CircleAvatar(
-            backgroundColor: iconColor.withOpacity(0.1),
-            child: Icon(icon, color: iconColor),
+            backgroundColor: color.withOpacity(0.1),
+            child: Icon(icon, color: color),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             title,
             style: TextStyle(
@@ -211,9 +258,9 @@ class BalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '\$${amount.toStringAsFixed(2)}',
+            amount,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -228,6 +275,120 @@ class BalanceCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildGroupsList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Your Groups',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              _buildGroupItem(
+                'Mumbai Hackathon',
+                'you are owed ₹687.50',
+                Icons.airplane_ticket,
+                Colors.blue,
+              ),
+              const Divider(),
+              _buildGroupItem(
+                'SVIET Hack',
+                'you owe ₹135.01',
+                Icons.code,
+                Colors.purple,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupItem(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+  ) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: color.withOpacity(0.1),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(title),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: subtitle.contains('owed') ? Colors.green : Colors.red,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {},
+    );
+  }
+
+  Widget _buildRecentExpenses(List<int> expenses) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Recent Activity',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 3,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              return ExpenseItem(
+                icon: '☕',
+                title: 'Coffee',
+                amount: -10.12,
+                date: DateTime.now(),
+                onTap: () {},
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -250,121 +411,42 @@ class ExpenseItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return ListTile(
       onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                icon,
-                style: TextStyle(fontSize: 24),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    DateFormat('dd MMM - HH:mm').format(date),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              amount > 0
-                  ? '+\$${amount.toStringAsFixed(2)}'
-                  : '-\$${amount.abs().toStringAsFixed(2)}',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: amount > 0 ? Colors.green : Colors.black,
-              ),
-            ),
-          ],
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          icon,
+          style: const TextStyle(fontSize: 24),
         ),
       ),
-    );
-  }
-}
-
-// gradient_card.dart
-class GradientCard extends StatelessWidget {
-  final double balance;
-  final VoidCallback onAddExpense;
-
-  const GradientCard({
-    Key? key,
-    required this.balance,
-    required this.onAddExpense,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF2DD4BF),
-            Color(0xFFFCD34D),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
         ),
-        borderRadius: BorderRadius.circular(24),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Total Balance',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '\$${balance.toStringAsFixed(2)}',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: onAddExpense,
-            child: Text('+ ADD EXPENSE'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
+      subtitle: Text(
+        DateFormat('dd MMM - HH:mm').format(date),
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[600],
+        ),
+      ),
+      trailing: Text(
+        amount > 0
+            ? '+\$${amount.abs().toStringAsFixed(2)}'
+            : '-\$${amount.abs().toStringAsFixed(2)}',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: amount > 0 ? Colors.green : Colors.red,
+        ),
       ),
     );
   }
