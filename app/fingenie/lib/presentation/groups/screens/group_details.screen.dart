@@ -24,66 +24,113 @@ class GroupDetailScreen extends StatelessWidget {
     AppLogger.info(
         'GroupBloc in GroupDetailScreen: ${context.read<GroupBloc>()}');
 
-    return BlocProvider.value(
-      value: parentGroupBloc, // Use the existing GroupBloc
-      child: Builder(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: Text(group.name),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.person_add),
-                onPressed: () {
-                  final currentGroupBloc = context.read<GroupBloc>();
+    return BlocBuilder<GroupBloc, GroupState>(builder: (context, state) {
+      final currentGroup = state.selectedGroup ?? group;
+      final members = currentGroup.members ?? [];
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(group.name),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.person_add),
+              onPressed: () {
+                final currentGroupBloc = context.read<GroupBloc>();
 
-                  AppLogger.warning(
-                      'GroupBloc before navigation: $currentGroupBloc');
+                AppLogger.warning(
+                    'GroupBloc before navigation: $currentGroupBloc');
 
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BlocProvider<GroupBloc>.value(
-                        value: currentGroupBloc,
-                        child: ContactSelectionScreen(
-                          onContactsSelected: (contacts) {
-                            AppLogger.info(
-                                'Contacts selected: ${contacts.length}');
-                            currentGroupBloc.add(AddGroupMembers(
-                              groupId: group.id,
-                              memberIds: contacts.map((e) => e.id).toList(),
-                            ));
-                          },
-                        ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BlocProvider<GroupBloc>.value(
+                      value: currentGroupBloc,
+                      child: ContactSelectionScreen(
+                        onContactsSelected: (contacts) {
+                          AppLogger.info(
+                              'Contacts selected: ${contacts.length}');
+                          currentGroupBloc.add(AddGroupMembers(
+                            groupId: group.id,
+                            memberNumbers: contacts.map((e) => e).toList(),
+                          ));
+                        },
                       ),
                     ),
-                  );
-                },
-              ),
-            ],
-          ),
-          body: BlocBuilder<GroupBloc, GroupState>(
-            builder: (context, state) {
-              if (state.isLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final selectedGroup = state.selectedGroup ?? group;
-              return ListView.builder(
-                itemCount: selectedGroup.memberIds.length,
-                itemBuilder: (context, index) {
-                  final memberId = selectedGroup.memberIds[index];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      child: Text(memberId[0].toUpperCase()),
-                    ),
-                    title: Text(memberId), // Replace with actual contact name
-                  );
-                },
-              );
-            },
-          ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
-      ),
-    );
+        body: state.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  // Group Info Card
+                  Card(
+                    margin: const EdgeInsets.all(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Group Details',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 8),
+                          Text('Created by: ${currentGroup.createdBy}'),
+                          Text('Split Strategy: ${currentGroup.splitStrategy}'),
+                          Text(
+                              'Budget Strategy: ${currentGroup.budgetStrategy}'),
+                        ],
+                      ),
+                    ),
+                  ),
+// Members List
+                  Expanded(
+                    child: members.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No members yet',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: members.length,
+                            itemBuilder: (context, index) {
+                              final member = members[index];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  child: Text(
+                                    member.role.substring(0, 1).toUpperCase(),
+                                  ),
+                                ),
+                                title: Text(member.userId),
+                                subtitle: Text(
+                                  'Role: ${member.role}\nShare: ${member.sharePercent}%',
+                                ),
+                                trailing: member.isActive
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        color: Colors.green,
+                                      )
+                                    : const Icon(
+                                        Icons.error,
+                                        color: Colors.red,
+                                      ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+        // floatingActionButton: FloatingActionButton(
+        //   onPressed: () {
+        //     // Navigate to add members screen
+        //   },
+        //   child: const Icon(Icons.person_add),
+        // ),
+      );
+    });
   }
 }

@@ -5,11 +5,34 @@ import 'package:fingenie/domain/models/user_model.dart';
 import 'package:fingenie/utils/app_logger.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthRepository {
+  static const String _tokenKey = 'auth_token';
+
+  Future<void> _storeToken(String token) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, token);
+      AppLogger.success('Token stored in SharedPreferences');
+    } catch (e) {
+      AppLogger.error('Failed to store token: $e');
+    }
+  }
+
+  Future<String?> getStoredToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_tokenKey);
+    } catch (e) {
+      AppLogger.error('Failed to get token: $e');
+      return null;
+    }
+  }
+
   static Future<void> init() async {
     try {
-      if (!Hive.isAdapterRegistered(0)) {
+      if (!Hive.isAdapterRegistered(3)) {
         Hive.registerAdapter(UserModelAdapter());
       }
 
@@ -42,50 +65,70 @@ class AuthRepository {
   AuthRepository({
     Dio? dio,
     Box<UserModel>? userBox,
-  })  : _dio = dio ?? Dio(),
+  })  : _dio = dio ??
+            Dio(BaseOptions(
+              connectTimeout: const Duration(seconds: 5),
+              receiveTimeout: const Duration(seconds: 3),
+            )),
         _userBox = userBox ?? Hive.box<UserModel>(userBoxName);
 
+  // Replace the existing signUp method with:
   Future<UserModel> signUp(SignUpRequest request) async {
     try {
-      AppLogger.info('signUp: Making signup request');
+      AppLogger.debug(
+          'Making request to: $apiUrl/api/v1/auth/signup'); // or login
+      // Prepare request body
+      final data = {
+        'email': request.email,
+        'password': request.password,
+        'displayName': request.name,
+        'phoneNumber': request.phoneNumber,
+      };
+      AppLogger.debug('Request data: $data');
 
+      // Make API call
+      final response = await _dio.post(
+        '$apiUrl/api/v1/auth/signup',
+        data: data,
+      );
+      AppLogger.success('signUp: signup request successfull');
+      // Extract token and user data
+      final responseData = response.data['data'];
+      final token = responseData['token'];
+      final userData = responseData['user'];
+      AppLogger.success('signUp: response data extracted');
+
+      // Create user model
       final user = UserModel(
-          id: 'id123',
-          name: request.name,
-          email: request.email,
-          phoneNumber: request.phoneNumber,
-          createdAt: DateTime.now(),
-          isLoggedIn: true,
-          token: 'jwt');
+        id: userData['id'],
+        name: userData['displayName'],
+        email: userData['email'],
+        phoneNumber: request.phoneNumber,
+        createdAt: DateTime.now(),
+        isLoggedIn: true,
+        token: token,
+        currency: '',
+        age: 0,
+        occupation: '',
+        monthlyIncome: 0,
+      );
+      await _storeToken(token);
 
-      // Close and reopen box to ensure fresh state
+      // Save to Hive
       if (Hive.isBoxOpen(userBoxName)) {
         await _userBox.close();
       }
       final box = await Hive.openBox<UserModel>(userBoxName);
-
-      // Save user and verify immediately
       await box.put('current_user', user);
+
       AppLogger.success('signUp: User saved to local storage');
-
-      // Immediate verification
-      final savedUser = box.get('current_user');
-      if (savedUser != null) {
-        AppLogger.debug('''
-Immediate verification after save:
-Box is open: ${Hive.isBoxOpen(userBoxName)}
-Box length: ${box.length}
-Box keys: ${box.keys.toList()}
-User ID: ${savedUser.id}
-User Name: ${savedUser.name}
-User Email: ${savedUser.email}
-''');
-      } else {
-        AppLogger.error('Failed to verify saved user immediately after save');
-      }
-
       return user;
+    } on DioException catch (e) {
+      AppLogger.error('Full error details: ${e.toString()}');
+      AppLogger.error('signUp: DioException: $e');
+      throw _handleDioError(e);
     } catch (e) {
+      AppLogger.error('Full error details: ${e.toString()}');
       AppLogger.error('signUp: Error: $e');
       throw Exception('Failed to sign up. Please try again.');
     }
@@ -94,23 +137,43 @@ User Email: ${savedUser.email}
   Future<UserModel> login(LoginRequest request) async {
     try {
       AppLogger.info('login: Making login request');
+
+      final data = {
+        'email': request.email,
+        'password': request.password,
+      };
+
       final response = await _dio.post(
-        '$apiUrl/auth/login',
-        data: request.toJson(),
+        '$apiUrl/api/v1/auth/login',
+        data: data,
       );
 
-      AppLogger.success('login: Login request successful');
-      AppLogger.info('login: Saving user to local storage');
+      final responseData = response.data['data'];
+      final token = responseData['token'];
+      final userData = responseData['user'];
 
-      final user = UserModel.fromJson(response.data);
-      await _userBox.put('current_user', user);
+      final user = UserModel(
+        id: userData['id'],
+        name: userData['displayName'],
+        email: userData['email'],
+        phoneNumber: '', // Not returned by login API
+        createdAt: DateTime.now(),
+        isLoggedIn: true,
+        token: token, currency: '', age: 0, occupation: '',
+        monthlyIncome: 0,
+      );
 
+      if (Hive.isBoxOpen(userBoxName)) {
+        await _userBox.close();
+      }
+      final box = await Hive.openBox<UserModel>(userBoxName);
+      await box.put('current_user', user);
+
+      // setAuthToken(token);
       AppLogger.success('login: User saved to local storage');
       return user;
     } on DioException catch (e) {
-      AppLogger.error(
-        'login: DioException: ${e.message} at status code: ${e.response?.statusCode}',
-      );
+      AppLogger.error('login: DioException: $e');
       throw _handleLoginDioError(e);
     }
   }
@@ -192,6 +255,53 @@ Current user exists: ${box.get('current_user') != null}
 ''');
     } catch (e) {
       AppLogger.error('Error debugging box contents: $e');
+    }
+  }
+
+  Future<UserModel?> updateProfileLocally({
+    required String currency,
+    required int age,
+    required String occupation,
+    required double monthlyIncome,
+  }) async {
+    try {
+      AppLogger.debug(
+          'Updating profile locally with: currency: $currency, age: $age, occupation: $occupation, monthlyIncome: $monthlyIncome');
+
+      // Get current user
+      final currentUser = getCurrentUser();
+      if (currentUser == null) {
+        AppLogger.error('No current user found to update');
+        return null;
+      }
+
+      // Create updated user model
+      final updatedUser = UserModel(
+        id: currentUser.id,
+        name: currentUser.name,
+        email: currentUser.email,
+        phoneNumber: currentUser.phoneNumber,
+        createdAt: currentUser.createdAt,
+        token: currentUser.token,
+        isLoggedIn: true,
+        currency: currency,
+        age: age,
+        occupation: occupation,
+        monthlyIncome: monthlyIncome,
+      );
+
+      // Save to Hive
+      if (Hive.isBoxOpen(userBoxName)) {
+        await _userBox.close();
+      }
+      final box = await Hive.openBox<UserModel>(userBoxName);
+      await box.put('current_user', updatedUser);
+
+      AppLogger.success('Profile updated locally');
+      return updatedUser;
+    } catch (e) {
+      AppLogger.error('Failed to update profile locally: $e');
+      return null;
     }
   }
 }

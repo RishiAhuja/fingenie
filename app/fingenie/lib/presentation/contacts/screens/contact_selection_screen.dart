@@ -9,7 +9,7 @@ import 'package:fingenie/core/config/theme/app_colors.dart';
 import 'package:flutter_contacts/contact.dart';
 
 class ContactSelectionScreen extends StatefulWidget {
-  final Function(List<Contact>) onContactsSelected;
+  final Function(List<String>) onContactsSelected;
 
   const ContactSelectionScreen({
     super.key,
@@ -263,17 +263,20 @@ class _ContactSelectionScreenState extends State<ContactSelectionScreen> {
                       ? null
                       : () {
                           final selectedContactsList = selectedContacts
-                              .map((wrapper) => wrapper.contact)
+                              .map((wrapper) =>
+                                  wrapper.contact.phones.isNotEmpty
+                                      ? wrapper.contact.phones.first.number
+                                      : '')
+                              .where((number) => number.isNotEmpty)
                               .toList();
+
+                          AppLogger.debug(
+                              'Selected phone numbers: $selectedContactsList');
                           widget.onContactsSelected(selectedContactsList);
                           Navigator.pop(context);
                         },
                   icon: const Icon(Icons.check),
-                  label: Text(
-                    'Add ${selectedContacts.length} Members',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600, color: Colors.white),
-                  ),
+                  label: Text('Add ${selectedContacts.length} Members'),
                 ),
               );
             },

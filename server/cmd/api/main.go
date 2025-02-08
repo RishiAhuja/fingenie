@@ -8,7 +8,7 @@ import (
 	"github.com/davinder1436/fingenie/pkg/database/postgres"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-)
+
 
 func main() {
 	// Initialize Fiber app
@@ -19,6 +19,12 @@ func main() {
 			})
 		},
 	})
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "*",
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowCredentials: false,
+	}))
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "*",
@@ -57,7 +63,7 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
-	if err := app.Listen(":" + port); err != nil {
+	if err := app.Listen("0.0.0.0:" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

@@ -6,7 +6,7 @@ import 'package:fingenie/presentation/auth/bloc/signup_bloc/signup_bloc.dart';
 import 'package:fingenie/presentation/auth/screens/login.dart';
 import 'package:fingenie/presentation/auth/screens/signup.dart';
 import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
-import 'package:fingenie/presentation/onboarding/screens/intro_screen.dart';
+import 'package:fingenie/presentation/onboarding/screens/intro/intro_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
