@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 // SplitExpense represents how an expense is divided among group members
 type SplitExpense struct {
@@ -9,12 +11,12 @@ type SplitExpense struct {
 	ExpenseID          string    `gorm:"type:uuid;not null;index" json:"expenseId"`
 	CreatedBy          string    `gorm:"type:uuid;not null;index" json:"createdBy"`
 	TotalAmount        float64   `gorm:"not null" json:"totalAmount"`
-	SplitType          SplitType `gorm:"type:varchar(20);not null;index" json:"splitType"`
-	SettlementPriority int       `json:"settlementPriority"`
-	GraceEndDate       time.Time `gorm:"index" json:"graceEndDate"`
-	CustomSplitRules   JSON      `gorm:"type:jsonb" json:"customSplitRules"`
-	NeedsApproval      bool      `json:"needsApproval"`
-	DueDate            time.Time `gorm:"index" json:"dueDate"`
+	SplitType          string    `gorm:"type:varchar(20);not null;default:'EQUAL';index" json:"splitType"`
+	SettlementPriority int       `gorm:"default:0" json:"settlementPriority"`
+	GraceEndDate       time.Time `gorm:"index;default:CURRENT_TIMESTAMP" json:"graceEndDate"`
+	CustomSplitRules   []byte    `gorm:"type:jsonb;default:'{}'" json:"customSplitRules"`
+	NeedsApproval      bool      `gorm:"default:false" json:"needsApproval"`
+	DueDate            time.Time `gorm:"index;not null" json:"dueDate"`
 
 	// Relations
 	Group   Group        `gorm:"foreignKey:GroupID" json:"-"`
@@ -28,18 +30,17 @@ type SplitShare struct {
 	Base
 	SplitExpenseID    string     `gorm:"type:uuid;not null;index" json:"splitExpenseId"`
 	UserID            string     `gorm:"type:uuid;not null;index" json:"userId"`
-	Amount            float64    `gorm:"not null" json:"amount"`
-	IsPaid            bool       `gorm:"index" json:"isPaid"`
-	PaidAt            *time.Time `json:"paidAt"`
-	InterestRate      float64    `json:"interestRate"`
-	InterestAccrued   float64    `json:"interestAccrued"`
-	NextReminderDate  *time.Time `gorm:"index" json:"nextReminderDate"`
-	ReminderFrequency string     `json:"reminderFrequency"`
+	Amount            float64    `gorm:"type:decimal(10,2);not null" json:"amount"`
+	IsPaid            bool       `gorm:"default:false" json:"isPaid"`
+	PaidAt            *time.Time `json:"paidAt,omitempty"`
+	InterestRate      float64    `gorm:"type:decimal(5,2);default:0" json:"interestRate"`
+	InterestAccrued   float64    `gorm:"type:decimal(10,2);default:0" json:"interestAccrued"`
+	NextReminderDate  *time.Time `json:"nextReminderDate,omitempty"`
+	ReminderFrequency string     `gorm:"type:varchar(20);default:''" json:"reminderFrequency"`
 
 	// Relations
 	SplitExpense SplitExpense `gorm:"foreignKey:SplitExpenseID" json:"-"`
-	User         User         `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Payments     []Payment    `gorm:"foreignKey:SplitShareID" json:"payments,omitempty"`
+	User         User         `gorm:"foreignKey:UserID" json:"-"`
 }
 
 type Expense struct {
@@ -50,18 +51,9 @@ type Expense struct {
 	OriginalCurrency string    `gorm:"not null" json:"originalCurrency"`
 	ConvertedAmount  float64   `json:"convertedAmount"`
 	Category         string    `gorm:"not null" json:"category"`
-	Tags             []string  `gorm:"type:text[]" json:"tags"`
 	Description      string    `json:"description"`
 	Date             time.Time `gorm:"not null" json:"date"`
 	IsVerified       bool      `gorm:"default:false" json:"isVerified"`
-	ImageURL         string    `json:"imageUrl"`
-	EmotionalState   string    `json:"emotionalState"`
-	IsImpulsive      bool      `gorm:"default:false" json:"isImpulsive"`
-	MindfulnessScore float64   `gorm:"default:0" json:"mindfulnessScore"`
-	IsRecurring      bool      `gorm:"default:false" json:"isRecurring"`
-	IsEssential      bool      `gorm:"default:false" json:"isEssential"`
-	PaymentMode      string    `json:"paymentMode"`
-
 	// Relations
 	User          User           `gorm:"foreignKey:UserID" json:"-"`
 	Group         *Group         `gorm:"foreignKey:GroupID" json:"group,omitempty"`
