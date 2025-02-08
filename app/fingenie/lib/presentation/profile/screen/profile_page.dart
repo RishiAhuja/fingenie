@@ -23,32 +23,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     try {
       userBox = await Hive.openBox<UserModel>('userBox');
+      AppLogger.debug('Profile: Box opened with ${userBox.length} items');
 
-      // Print all users in the box
-      AppLogger.debug('Number of users in box: ${userBox.length}');
-
-      for (var i = 0; i < userBox.length; i++) {
-        final user = userBox.getAt(i);
-        if (user != null) {
-          AppLogger.debug('User $i data:');
-          AppLogger.debug('ID: ${user.id}');
-          AppLogger.debug('Name: ${user.name}');
-          AppLogger.debug('Email: ${user.email}');
-          AppLogger.debug('Phone: ${user.phoneNumber}');
-          AppLogger.debug('Created At: ${user.createdAt}');
-          AppLogger.debug('Is Logged In: ${user.isLoggedIn}');
-          AppLogger.debug('-------------------');
-        }
-      }
-
-      // Get the first user (assuming single user storage)
-      if (userBox.isNotEmpty) {
+      final user = userBox.get('current_user');
+      if (user != null) {
         setState(() {
-          currentUser = userBox.getAt(0);
+          currentUser = user;
         });
+        AppLogger.debug('''
+Profile loaded user:
+ID: ${user.id}
+Name: ${user.name}
+Email: ${user.email}
+IsLoggedIn: ${user.isLoggedIn}
+''');
+      } else {
+        AppLogger.warning('Profile: No user found in box');
       }
     } catch (e) {
-      AppLogger.error('Error loading user data: $e');
+      AppLogger.error('Profile: Error loading user data: $e');
     }
   }
 
@@ -56,7 +49,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Center(
       child: currentUser != null
-          ? Text('Welcome ${currentUser!.name}')
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(currentUser!.name,
+                    style: Theme.of(context).textTheme.displayMedium),
+                const SizedBox(
+                  height: 5,
+                ),
+                Text('email: ${currentUser!.email}',
+                    style: Theme.of(context).textTheme.bodyMedium),
+                Text('phoneNumber: ${currentUser!.phoneNumber}',
+                    style: Theme.of(context).textTheme.bodyMedium),
+                Text('id: ${currentUser!.id}',
+                    style: Theme.of(context).textTheme.bodyMedium),
+                Text('isLoggedIn: ${currentUser!.isLoggedIn}',
+                    style: Theme.of(context).textTheme.bodyMedium),
+                Text('createdAt: ${currentUser!.createdAt}',
+                    style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            )
           : const Text('No user data found'),
     );
   }

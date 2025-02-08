@@ -1,12 +1,16 @@
+import 'package:dio/dio.dart';
 import 'package:fingenie/core/config/theme/app_colors.dart';
+import 'package:fingenie/data/groups/group_repository.dart';
 import 'package:fingenie/presentation/auth/bloc/signup_bloc/signup_bloc.dart';
 import 'package:fingenie/presentation/auth/bloc/signup_bloc/signup_event.dart';
 import 'package:fingenie/presentation/auth/bloc/signup_bloc/signup_state.dart';
+import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
 import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
 import 'package:fingenie/presentation/home/screens/home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class PhoneNumberFormatter extends TextInputFormatter {
   @override
@@ -69,6 +73,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 providers: [
                   BlocProvider(
                     create: (context) => ExpenseBloc(),
+                  ),
+
+                  BlocProvider(
+                    create: (context) => GroupBloc(
+                        repository: GroupRepository(
+                            dio: Dio(), apiUrl: dotenv.env['API_URL'] ?? ''),
+                        apiUrl: dotenv.env['API_URL'] ?? ''),
                   ),
                   // Add any other required providers here
                 ],

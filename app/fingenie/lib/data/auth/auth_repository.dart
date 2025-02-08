@@ -8,10 +8,29 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 class AuthRepository {
   static Future<void> init() async {
-    if (!Hive.isAdapterRegistered(0)) {
-      Hive.registerAdapter(UserModelAdapter());
+    try {
+      if (!Hive.isAdapterRegistered(0)) {
+        Hive.registerAdapter(UserModelAdapter());
+      }
+
+      // Always close the box if it's open before reopening
+      if (Hive.isBoxOpen(userBoxName)) {
+        await Hive.box<UserModel>(userBoxName).close();
+      }
+
+      // Open the box
+      final box = await Hive.openBox<UserModel>(userBoxName);
+      AppLogger.debug('AuthRepository initialized with ${box.length} items');
+
+      // Debug box contents
+      for (var key in box.keys) {
+        final user = box.get(key);
+        AppLogger.debug('Box contains key: $key with user: ${user?.name}');
+      }
+    } catch (e) {
+      AppLogger.error('Failed to initialize AuthRepository: $e');
+      rethrow;
     }
-    await Hive.openBox<UserModel>(userBoxName);
   }
 
   final Dio _dio;
@@ -29,14 +48,7 @@ class AuthRepository {
   Future<UserModel> signUp(SignUpRequest request) async {
     try {
       AppLogger.info('signUp: Making signup request');
-      // final response = await _dio.post(
-      //   '$apiUrl/auth/signup',
-      //   data: request.toJson(),
-      // );
 
-      AppLogger.success('signUp: Signup request successful');
-      AppLogger.info('signUp: Saving user to local storage');
-      // final user = UserModel.fromJson(response.data);
       final user = UserModel(
           id: 'id123',
           name: request.name,
@@ -45,13 +57,34 @@ class AuthRepository {
           createdAt: DateTime.now(),
           isLoggedIn: true,
           token: 'jwt');
-      await _userBox.put('current_user', user);
+
+      // Close and reopen box to ensure fresh state
+      if (Hive.isBoxOpen(userBoxName)) {
+        await _userBox.close();
+      }
+      final box = await Hive.openBox<UserModel>(userBoxName);
+
+      // Save user and verify immediately
+      await box.put('current_user', user);
       AppLogger.success('signUp: User saved to local storage');
+
+      // Immediate verification
+      final savedUser = box.get('current_user');
+      if (savedUser != null) {
+        AppLogger.debug('''
+Immediate verification after save:
+Box is open: ${Hive.isBoxOpen(userBoxName)}
+Box length: ${box.length}
+Box keys: ${box.keys.toList()}
+User ID: ${savedUser.id}
+User Name: ${savedUser.name}
+User Email: ${savedUser.email}
+''');
+      } else {
+        AppLogger.error('Failed to verify saved user immediately after save');
+      }
+
       return user;
-    } on DioException catch (e) {
-      AppLogger.error(
-          'signUp: DioException: ${e.message} at status code: ${e.response?.statusCode}');
-      throw _handleDioError(e);
     } catch (e) {
       AppLogger.error('signUp: Error: $e');
       throw Exception('Failed to sign up. Please try again.');
@@ -107,6 +140,58 @@ class AuthRepository {
   }
 
   UserModel? getCurrentUser() {
-    return _userBox.get('current_user');
+    try {
+      if (!Hive.isBoxOpen(userBoxName)) {
+        Hive.openBox<UserModel>(userBoxName);
+      }
+      return _userBox.get('current_user');
+    } catch (e) {
+      AppLogger.error('Error getting current user: $e');
+      return null;
+    }
+  }
+
+  // Add a method to verify user persistence
+  Future<void> verifyUserPersistence() async {
+    try {
+      if (!Hive.isBoxOpen(userBoxName)) {
+        await Hive.openBox<UserModel>(userBoxName);
+      }
+
+      final user = _userBox.get('current_user');
+      if (user != null) {
+        AppLogger.debug('''
+Verified persisted user:
+ID: ${user.id}
+Name: ${user.name}
+Email: ${user.email}
+IsLoggedIn: ${user.isLoggedIn}
+''');
+      } else {
+        AppLogger.warning('No user found in persistence');
+      }
+    } catch (e) {
+      AppLogger.error('Error verifying user persistence: $e');
+    }
+  }
+
+  // Add this method to help with debugging
+  static Future<void> debugBoxContents() async {
+    try {
+      if (!Hive.isBoxOpen(userBoxName)) {
+        await Hive.openBox<UserModel>(userBoxName);
+      }
+
+      final box = Hive.box<UserModel>(userBoxName);
+      AppLogger.debug('''
+Box Debug Information:
+Box is open: ${Hive.isBoxOpen(userBoxName)}
+Box length: ${box.length}
+Box keys: ${box.keys.toList()}
+Current user exists: ${box.get('current_user') != null}
+''');
+    } catch (e) {
+      AppLogger.error('Error debugging box contents: $e');
+    }
   }
 }

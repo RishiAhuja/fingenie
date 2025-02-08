@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+import 'package:fingenie/data/groups/group_repository.dart';
 import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
 import 'package:fingenie/presentation/groups/bloc/group_events.dart';
 import 'package:fingenie/presentation/groups/bloc/group_state.dart';
@@ -122,6 +124,8 @@ class _CreateGroupModalState extends State<CreateGroupModal> {
                       builder: (context) => BlocProvider(
                         create: (context) => GroupBloc(
                           apiUrl: dotenv.env['API_URL'] ?? '',
+                          repository: GroupRepository(
+                              dio: Dio(), apiUrl: dotenv.env['API_URL'] ?? ''),
                         ),
                         child: GroupDetailScreen(
                           group: state.selectedGroup!,

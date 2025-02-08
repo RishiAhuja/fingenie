@@ -1,5 +1,7 @@
 abstract class GroupEvent {}
 
+class LoadGroups extends GroupEvent {}
+
 class CreateGroup extends GroupEvent {
   final String name;
   final String tag;
