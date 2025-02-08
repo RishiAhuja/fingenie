@@ -5,7 +5,7 @@ FROM golang:1.22.2 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum first (for dependency caching)
-COPY go.mod go.sum ./
+COPY go.mod ./
 
 # Download dependencies
 RUN go mod download

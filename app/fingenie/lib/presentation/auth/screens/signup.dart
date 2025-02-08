@@ -6,7 +6,7 @@ import 'package:fingenie/presentation/auth/bloc/signup_bloc/signup_event.dart';
 import 'package:fingenie/presentation/auth/bloc/signup_bloc/signup_state.dart';
 import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
 import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
-import 'package:fingenie/presentation/home/screens/home.dart';
+import 'package:fingenie/presentation/onboarding/screens/info/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -83,7 +83,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   // Add any other required providers here
                 ],
-                child: const HomeScreen(),
+                // child: const HomeScreen(),
+                child: const OnboardingFlow(),
               ),
             ),
           );

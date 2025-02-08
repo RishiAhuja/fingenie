@@ -21,7 +21,7 @@ services:
 
   postgres:
     image: postgres:latest
-    container_name: fingenie_db
+    container_name: fingenie
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Davinder22#

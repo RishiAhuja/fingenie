@@ -8,23 +8,28 @@ class ContactsService {
   static const String _settingsBoxName = 'settings_box';
   static const String _lastSyncKey = 'last_sync_timestamp';
 
+  static const int _contactTypeId = 10;
+  static const int _phoneTypeId = 11;
+  static const int _emailTypeId = 12;
+
   static Future<void> initializeHive() async {
     await Hive.initFlutter();
 
     // Register the adapters if they haven't been registered yet
-    if (!Hive.isAdapterRegistered(0)) {
+    if (!Hive.isAdapterRegistered(_contactTypeId)) {
       Hive.registerAdapter(HiveContactAdapter());
     }
-    if (!Hive.isAdapterRegistered(1)) {
+    if (!Hive.isAdapterRegistered(_phoneTypeId)) {
       Hive.registerAdapter(HivePhoneAdapter());
     }
-    if (!Hive.isAdapterRegistered(2)) {
+    if (!Hive.isAdapterRegistered(_emailTypeId)) {
       Hive.registerAdapter(HiveEmailAdapter());
     }
 
     // Open boxes
     await Hive.openBox<HiveContact>(_contactsBoxName);
     await Hive.openBox(_settingsBoxName);
+    AppLogger.success('ContactsService: Hive initialized successfully');
   }
 
   Future<bool> shouldRefreshContacts() async {

@@ -8,7 +8,7 @@ part of 'contacts_adapter.dart';
 
 class HiveContactAdapter extends TypeAdapter<HiveContact> {
   @override
-  final int typeId = 0;
+  final int typeId = 10;
 
   @override
   HiveContact read(BinaryReader reader) {
@@ -51,7 +51,7 @@ class HiveContactAdapter extends TypeAdapter<HiveContact> {
 
 class HivePhoneAdapter extends TypeAdapter<HivePhone> {
   @override
-  final int typeId = 1;
+  final int typeId = 11;
 
   @override
   HivePhone read(BinaryReader reader) {
@@ -88,7 +88,7 @@ class HivePhoneAdapter extends TypeAdapter<HivePhone> {
 
 class HiveEmailAdapter extends TypeAdapter<HiveEmail> {
   @override
-  final int typeId = 2;
+  final int typeId = 12;
 
   @override
   HiveEmail read(BinaryReader reader) {

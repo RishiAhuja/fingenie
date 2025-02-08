@@ -4,7 +4,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 
 part 'contacts_adapter.g.dart';
 
-@HiveType(typeId: 0)
+@HiveType(typeId: 10)
 class HiveContact extends HiveObject {
   @HiveField(0)
   late String id;
@@ -46,7 +46,7 @@ class HiveContact extends HiveObject {
   }
 }
 
-@HiveType(typeId: 1)
+@HiveType(typeId: 11)
 class HivePhone extends HiveObject {
   @HiveField(0)
   late String number;
@@ -60,7 +60,7 @@ class HivePhone extends HiveObject {
   });
 }
 
-@HiveType(typeId: 2)
+@HiveType(typeId: 12)
 class HiveEmail extends HiveObject {
   @HiveField(0)
   late String address;
