@@ -23,13 +23,14 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       phoneNumber: fields[3] as String,
       createdAt: fields[4] as DateTime,
       token: fields[5] as String,
+      isLoggedIn: fields[6] as bool?,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserModel obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       ..writeByte(4)
       ..write(obj.createdAt)
       ..writeByte(5)
-      ..write(obj.token);
+      ..write(obj.token)
+      ..writeByte(6)
+      ..write(obj.isLoggedIn);
   }
 
   @override
@@ -66,6 +69,7 @@ UserModel _$UserModelFromJson(Map<String, dynamic> json) => UserModel(
       phoneNumber: json['phoneNumber'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       token: json['token'] as String,
+      isLoggedIn: json['isLoggedIn'] as bool? ?? true,
     );
 
 Map<String, dynamic> _$UserModelToJson(UserModel instance) => <String, dynamic>{
@@ -75,4 +79,5 @@ Map<String, dynamic> _$UserModelToJson(UserModel instance) => <String, dynamic>{
       'phoneNumber': instance.phoneNumber,
       'createdAt': instance.createdAt.toIso8601String(),
       'token': instance.token,
+      'isLoggedIn': instance.isLoggedIn,
     };

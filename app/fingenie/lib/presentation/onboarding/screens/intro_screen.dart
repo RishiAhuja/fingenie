@@ -1,7 +1,11 @@
+import 'package:dio/dio.dart';
+import 'package:fingenie/data/groups/group_repository.dart';
+import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
 import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
 import 'package:fingenie/presentation/home/screens/home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:introduction_screen/introduction_screen.dart';
 import 'package:fingenie/core/config/theme/app_colors.dart';
 import 'package:lottie/lottie.dart';
@@ -34,7 +38,12 @@ class _IntroScreenState extends State<IntroScreen> {
               BlocProvider(
                 create: (context) => ExpenseBloc(),
               ),
-              // Add any other required providers here
+              BlocProvider(
+                create: (context) => GroupBloc(
+                    repository: GroupRepository(
+                        dio: Dio(), apiUrl: dotenv.env['API_URL'] ?? ''),
+                    apiUrl: dotenv.env['API_URL'] ?? ''),
+              ),
             ],
             child: const HomeScreen(),
           ),

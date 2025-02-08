@@ -54,6 +54,7 @@ dependencies:
   flutter_dotenv: ^5.1.0
   introduction_screen:
   lottie:
+  google_gemini:
 
 dev_dependencies:
   flutter_test:

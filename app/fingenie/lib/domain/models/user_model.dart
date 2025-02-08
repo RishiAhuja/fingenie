@@ -25,7 +25,7 @@ class UserModel extends HiveObject {
   final String token;
 
   @HiveField(6)
-  final bool isLoggedIn;
+  final bool? isLoggedIn;
 
   UserModel(
       {required this.id,

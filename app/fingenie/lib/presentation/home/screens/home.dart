@@ -1,8 +1,13 @@
+import 'package:dio/dio.dart';
+import 'package:fingenie/data/groups/group_repository.dart';
 import 'package:fingenie/presentation/activity/screens/activity_screen.dart';
 import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
+import 'package:fingenie/presentation/groups/bloc/group_events.dart';
+import 'package:fingenie/presentation/groups/bloc/group_state.dart';
 import 'package:fingenie/presentation/groups/screens/creat_group_modal.dart';
 import 'package:fingenie/presentation/groups/screens/group_screens.dart';
 import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
+import 'package:fingenie/presentation/ocr/screens/ocr.dart';
 import 'package:fingenie/presentation/profile/screen/profile_page.dart';
 import 'package:fingenie/utils/app_logger.dart';
 import 'package:flutter/material.dart';
@@ -29,70 +34,88 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     context.read<ExpenseBloc>().add(LoadExpenses());
+    context.read<GroupBloc>().add(LoadGroups());
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.grey[50],
-        elevation: 0,
-        title: const Text(
-          'Split wise.',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+    return Builder(builder: (context) {
+      return MultiBlocProvider(
+        providers: [
+          BlocProvider.value(
+            value: context.read<GroupBloc>(),
+          ),
+          BlocProvider.value(
+            value: context.read<ExpenseBloc>(),
+          ),
+        ],
+        child: Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            backgroundColor: Colors.grey[50],
+            elevation: 0,
+            title: const Text(
+              'Split wise.',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.group_add),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: BlocProvider(
+                        create: (context) => GroupBloc(
+                            apiUrl: dotenv.env['API_URL'] ?? '',
+                            repository: GroupRepository(
+                                dio: Dio(),
+                                apiUrl: dotenv.env['API_URL'] ?? '')),
+                        child: const CreateGroupModal(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined,
+                    color: Colors.black87),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          body: _shownScreen(),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              AppLogger.info('BottomNav index: //');
+
+              setState(() => _currentIndex = index);
+            },
+            selectedItemColor: const Color(0xFF2DD4BF),
+            unselectedItemColor: Colors.grey,
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.groups), label: 'Groups'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.trending_up), label: 'Activity'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person), label: 'Profile'),
+            ],
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.group_add),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
-                  ),
-                  child: BlocProvider(
-                    create: (context) =>
-                        GroupBloc(apiUrl: dotenv.env['API_URL'] ?? ''),
-                    child: const CreateGroupModal(),
-                  ),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon:
-                const Icon(Icons.notifications_outlined, color: Colors.black87),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: _shownScreen(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          AppLogger.info('BottomNav index: $index');
-
-          setState(() => _currentIndex = index);
-        },
-        selectedItemColor: const Color(0xFF2DD4BF),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.groups), label: 'Groups'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.trending_up), label: 'Activity'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildBalanceCard(ExpenseState state) {
@@ -183,6 +206,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildGroupsList(),
                     const SizedBox(height: 16),
                     _buildRecentExpenses(state.expenses),
+                    const SizedBox(height: 16),
+                    TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const OcrScreen()));
+                        },
+                        child: const Text('OCR')),
                   ],
                 ),
               );
@@ -279,49 +311,77 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildGroupsList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Your Groups',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+    return BlocBuilder<GroupBloc, GroupState>(
+      builder: (context, state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your Groups',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildGroupItem(
-                'Mumbai Hackathon',
-                'you are owed ₹687.50',
-                Icons.airplane_ticket,
-                Colors.blue,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              const Divider(),
-              _buildGroupItem(
-                'SVIET Hack',
-                'you owe ₹135.01',
-                Icons.code,
-                Colors.purple,
+              child: Column(
+                children: [
+                  _buildGroupItem(
+                    'Mumbai Hackathon',
+                    'you are owed ₹687.50',
+                    Icons.airplane_ticket,
+                    Colors.blue,
+                  ),
+                  const Divider(),
+                  _buildGroupItem(
+                    'SVIET Hack',
+                    'you owe ₹135.01',
+                    Icons.code,
+                    Colors.purple,
+                  ),
+                  // if (state.isLoading)
+                  //   const Center(child: CircularProgressIndicator())
+                  // else if (state.errorMessage != null)
+                  //   Center(child: Text(state.errorMessage!))
+                  // else ...[
+                  //   for (int i = 0; i < state.groups.length; i++) ...[
+                  //     _buildGroupItem(
+                  //       state.groups[i].name,
+                  //       state.groups[i].balance >= 0
+                  //           ? 'you are owed ₹${state.groups[i].balance.abs()}'
+                  //           : 'you owe ₹${state.groups[i].balance.abs()}',
+                  //       IconData(
+                  //         int.parse(state.groups[i].icon.isEmpty
+                  //             ? '0xf415' // Default icon code
+                  //             : state.groups[i].icon),
+                  //         fontFamily: 'MaterialIcons',
+                  //       ),
+                  //       Color(int.parse(state.groups[i].color.isEmpty
+                  //           ? '0xFF2196F3' // Default color
+                  //           : state.groups[i].color)),
+                  //     ),
+                  //     if (i < state.groups.length - 1) const Divider(),
+                  // ],
+                  // ],
+                ],
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
