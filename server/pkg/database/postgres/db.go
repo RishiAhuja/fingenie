@@ -59,6 +59,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Expense{},
 		&models.RecurringExpense{},
 		&models.SplitExpense{},
+		&models.SplitShare{},
 	)
 
 	if err != nil {

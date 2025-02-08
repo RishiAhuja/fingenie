@@ -7,6 +7,7 @@ import (
 	"github.com/davinder1436/fingenie/api"
 	"github.com/davinder1436/fingenie/pkg/database/postgres"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func main() {
@@ -18,6 +19,13 @@ func main() {
 			})
 		},
 	})
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "*",
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowCredentials: false,
+	}))
 
 	// Database configuration
 	dbConfig := &postgres.Config{

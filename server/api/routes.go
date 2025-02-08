@@ -29,4 +29,5 @@ func SetupRoutes(app *fiber.App, db *gorm.DB) {
 
 	SetupProfileRoutes(app, db)
 	SetupGroupRoutes(app, db)
+	SetupExpenseRoutes(app, db)
 }
