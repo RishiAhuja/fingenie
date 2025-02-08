@@ -151,3 +151,39 @@ func (h *Handler) DeleteIncomeStream(c *fiber.Ctx) error {
 		"message": "Income stream deleted successfully",
 	})
 }
+
+func (h *Handler) GetUsersByPhoneNumber(c *fiber.Ctx) error {
+	phoneNumber := c.Params("phoneNumber")
+
+	// Basic validation for phone number
+	if phoneNumber == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Phone number is required",
+		})
+	}
+
+	var users []models.User
+	result := h.db.Select("id, display_name, phone_number, telegram_id, whatsapp_number").
+		Where("phone_number = ?", phoneNumber).
+		Find(&users)
+
+	if result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Error fetching users",
+		})
+	}
+
+	if len(users) == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"error":   "No users found with this phone number",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    users,
+	})
+}

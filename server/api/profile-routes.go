@@ -20,6 +20,7 @@ func SetupProfileRoutes(app *fiber.App, db *gorm.DB) {
 	// User profile routes
 	profileGroup.Get("/", profileHandler.GetProfile)
 	profileGroup.Put("/", profileHandler.UpdateProfile)
+	profileGroup.Get("/user/:phoneNumber", profileHandler.GetUsersByPhoneNumber)
 
 	// Income streams routes
 	profileGroup.Post("/income-streams", profileHandler.AddIncomeStream)

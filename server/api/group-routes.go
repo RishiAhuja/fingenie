@@ -17,7 +17,7 @@ func SetupGroupRoutes(app *fiber.App, db *gorm.DB) {
 	groupRoutes.Put("/:groupId", h.UpdateGroup) // Update an existing group
 	groupRoutes.Get("/:groupId", h.GetGroup)    // Fetch group details
 	groupRoutes.Delete("/:groupId", h.DeleteGroup)
-	groupRoutes.Get("/user-groups", h.ListUserGroups)
+	groupRoutes.Get("/", h.ListUserGroups) // No groupId here, just the user’s groups.
 
 	// Group Member Routes
 	memberRoutes := groupRoutes.Group("/:groupId/members")

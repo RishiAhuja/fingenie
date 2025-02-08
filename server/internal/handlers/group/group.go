@@ -263,11 +263,11 @@ func (h *Handler) DeleteGroup(c *fiber.Ctx) error {
 }
 
 func (h *Handler) ListUserGroups(c *fiber.Ctx) error {
-	userID := c.Locals("userId").(string)
+	userID := c.Locals("userId").(string) // Assuming userId is stored in locals from auth middleware
 
 	var groups []models.Group
 	err := h.db.Joins("JOIN group_members ON groups.id = group_members.group_id").
-		Where("group_members.user_id = ?", userID).
+		Where("group_members.user_id = ?", userID). // Make sure we fetch groups based on user ID
 		Preload("Members").
 		Preload("Members.User").
 		Find(&groups).Error
