@@ -1,6 +1,8 @@
 package models
 
 import (
+	"database/sql/driver"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,7 +15,29 @@ type Base struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-type JSON map[string]interface{}
+type JSON []byte
+
+// Scan implements the sql.Scanner interface
+func (j *JSON) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	s, ok := value.([]byte)
+	if !ok {
+		return errors.New("invalid scan source for JSON")
+	}
+	*j = append((*j)[0:0], s...)
+	return nil
+}
+
+// Value implements the driver.Valuer interface
+func (j JSON) Value() (driver.Value, error) {
+	if len(j) == 0 {
+		return nil, nil
+	}
+	return string(j), nil
+}
 
 // Enum types
 type GroupType string
