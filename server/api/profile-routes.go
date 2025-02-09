@@ -20,13 +20,16 @@ func SetupProfileRoutes(app *fiber.App, db *gorm.DB) {
 	// User profile routes
 	profileGroup.Get("/", profileHandler.GetProfile)
 	profileGroup.Put("/", profileHandler.UpdateProfile)
+	profileGroup.Get("/social-score", profileHandler.GetUserSocialScoreHistory)
+	profileGroup.Post("/social-score", profileHandler.SetupUserSocialScore)
+	profileGroup.Put("/social-score", profileHandler.UpdateUserSocialScore)
 	profileGroup.Get("/user/:phoneNumber", profileHandler.GetUsersByPhoneNumber)
+	profileGroup.Get("/:userId", profileHandler.GetUserById)
 
 	// Income streams routes
 	profileGroup.Post("/income-streams", profileHandler.AddIncomeStream)
 	profileGroup.Put("/income-streams/:streamId", profileHandler.UpdateIncomeStream)
 	profileGroup.Delete("/income-streams/:streamId", profileHandler.DeleteIncomeStream)
-
 	// Budget routes
 	profileGroup.Post("/budgets", profileHandler.CreateBudget)
 

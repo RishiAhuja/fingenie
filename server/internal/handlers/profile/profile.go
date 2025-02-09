@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"errors"
 	"time"
 
 	"github.com/davinder1436/fingenie/internal/models"
@@ -185,5 +186,40 @@ func (h *Handler) GetUsersByPhoneNumber(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    users,
+	})
+}
+
+func (h *Handler) GetUserById(c *fiber.Ctx) error {
+	userId := c.Params("userId")
+
+	// Basic validation for user ID
+	if userId == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "User ID is required",
+		})
+	}
+
+	var user models.User
+	result := h.db.Select("id, display_name, phone_number, telegram_id, whatsapp_number").
+		Where("id = ?", userId).
+		First(&user)
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"success": false,
+				"error":   "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Error fetching user",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    user,
 	})
 }
