@@ -7,7 +7,8 @@ import 'package:fingenie/data/groups/group_repository.dart';
 import 'package:fingenie/domain/models/user_model.dart';
 import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
 import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
-import 'package:fingenie/presentation/onboarding/screens/intro_screen.dart';
+import 'package:fingenie/presentation/home/screens/home.dart';
+import 'package:fingenie/presentation/onboarding/screens/intro/intro_screen.dart';
 import 'package:fingenie/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,28 +19,29 @@ void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     await Hive.initFlutter();
+    await dotenv.load(fileName: ".env");
 
-    // Clear any existing boxes first
-    // await Hive.deleteBoxFromDisk('userBox');
-    await AuthRepository.debugBoxContents();
-
-    // Register adapter before any box operations
-    if (!Hive.isAdapterRegistered(0)) {
+    if (!Hive.isAdapterRegistered(3)) {
       Hive.registerAdapter(UserModelAdapter());
     }
 
-    await AuthRepository.init();
-    await dotenv.load(fileName: ".env");
     await ContactsService.initializeHive();
+    await Hive.openBox<UserModel>('userBox');
 
+    await AuthRepository.init();
+
+    // Open user box
+    final userBox = await Hive.openBox<UserModel>('userBox');
+    final apiUrl = dotenv.env['API_URL'] ?? '';
+
+    // Check for API key
     final apiKey = dotenv.env['GEMINI_API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
       AppLogger.error('GEMINI_API_KEY not found in environment variables');
       throw Exception('GEMINI_API_KEY not found in environment variables');
     }
 
-    final userBox = await Hive.openBox<UserModel>('userBox');
-
+    // Check for current user
     final currentUser = userBox.get('current_user');
     if (currentUser != null) {
       AppLogger.debug('''
@@ -53,7 +55,33 @@ IsLoggedIn: ${currentUser.isLoggedIn ?? false}
       AppLogger.debug('No current user found in the box');
     }
 
-    runApp(const MyApp());
+    // Determine initial screen
+    Widget initialScreen;
+    if (currentUser != null && currentUser.isLoggedIn == true) {
+      AppLogger.debug('Logged in user found, redirecting to HomeScreen');
+      initialScreen = MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (context) => ExpenseBloc(),
+          ),
+          BlocProvider(
+            create: (context) => GroupBloc(
+              repository: GroupRepository(
+                dio: Dio(),
+                apiUrl: apiUrl,
+              ),
+              apiUrl: apiUrl,
+            ),
+          ),
+        ],
+        child: const HomeScreen(),
+      );
+    } else {
+      AppLogger.debug('No logged in user found, showing IntroScreen');
+      initialScreen = const IntroScreen();
+    }
+
+    runApp(MyApp(initialScreen: initialScreen));
   } catch (e, stackTrace) {
     AppLogger.error('Initialization error: $e');
     AppLogger.error('Stack trace: $stackTrace');
@@ -62,7 +90,12 @@ IsLoggedIn: ${currentUser.isLoggedIn ?? false}
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final Widget initialScreen;
+
+  const MyApp({
+    super.key,
+    required this.initialScreen,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -91,12 +124,10 @@ class MyApp extends StatelessWidget {
               create: (context) => GroupBloc(
                 apiUrl: apiUrl,
                 repository: groupRepository,
-              ), // Initialize with loading groups
+              ),
             ),
           ],
-          child: Builder(
-            builder: (context) => const IntroScreen(),
-          ),
+          child: initialScreen,
         ),
       ),
     );

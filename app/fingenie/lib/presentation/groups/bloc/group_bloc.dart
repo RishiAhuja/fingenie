@@ -1,8 +1,9 @@
-import 'package:fingenie/data/groups/group_repository.dart';
-import 'package:fingenie/domain/models/group_model.dart';
 import 'package:fingenie/presentation/groups/bloc/group_events.dart';
 import 'package:fingenie/presentation/groups/bloc/group_state.dart';
+import 'package:fingenie/utils/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../data/groups/group_repository.dart';
 
 class GroupBloc extends Bloc<GroupEvent, GroupState> {
   final GroupRepository repository;
@@ -17,22 +18,15 @@ class GroupBloc extends Bloc<GroupEvent, GroupState> {
     on<AddGroupMembers>(_onAddGroupMembers);
   }
 
-  Future<void> _onLoadGroups(
-    LoadGroups event,
-    Emitter<GroupState> emit,
-  ) async {
-    emit(state.copyWith(isLoading: true, errorMessage: null));
-
+  Future<void> _onLoadGroups(LoadGroups event, Emitter<GroupState> emit) async {
     try {
-      // final response = await _dio.get('$apiUrl/groups');
-      // final List<GroupModel> groups = (response.data as List)
-      //     .map((json) => GroupModel.fromJson(json))
-      //     .toList();
-
-      // emit(state.copyWith(
-      //   isLoading: false,
-      //   groups: groups,
-      // ));
+      emit(state.copyWith(isLoading: true, errorMessage: null));
+      final groups = await repository.fetchUserGroups();
+      emit(state.copyWith(
+        isLoading: false,
+        groups: groups,
+        errorMessage: null,
+      ));
     } catch (e) {
       emit(state.copyWith(
         isLoading: false,
@@ -42,39 +36,27 @@ class GroupBloc extends Bloc<GroupEvent, GroupState> {
   }
 
   Future<void> _onCreateGroup(
-    CreateGroup event,
-    Emitter<GroupState> emit,
-  ) async {
-    emit(state.copyWith(isLoading: true, errorMessage: null));
-
+      CreateGroup event, Emitter<GroupState> emit) async {
     try {
-      // final response = await _dio.post(
-      //   '$apiUrl/groups',
-      //   data: {
-      //     'name': event.name,
-      //     'tag': event.tag,
-      //     'member_ids': event.initialMembers,
-      //   },
-      // );
+      emit(state.copyWith(isLoading: true, errorMessage: null));
 
-      // final newGroup = GroupModel.fromJson(response.data);
-      final newGroup = GroupModel(
-        id: 'new-group-id',
+      final newGroup = await repository.createGroup(
         name: event.name,
         tag: event.tag,
-        memberIds: event.initialMembers,
-        createdAt: DateTime.now(),
-        balance: 0,
-        icon: '',
-        color: '',
-        createdBy: 'current-user-id',
+        securityDepositRequired: event.securityDepositRequired,
+        securityDeposit: event.securityDeposit,
+        autoSettlement: event.autoSettlement,
+        initialMembers: event.initialMembers,
       );
+
       emit(state.copyWith(
         isLoading: false,
+        group: newGroup, // This triggers navigation
         groups: [...state.groups, newGroup],
-        selectedGroup: newGroup,
+        errorMessage: null,
       ));
     } catch (e) {
+      AppLogger.error('Failed to create group: ${e.toString()}');
       emit(state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to create group: ${e.toString()}',
@@ -83,29 +65,63 @@ class GroupBloc extends Bloc<GroupEvent, GroupState> {
   }
 
   Future<void> _onAddGroupMembers(
-    AddGroupMembers event,
-    Emitter<GroupState> emit,
-  ) async {
-    emit(state.copyWith(isLoading: true, errorMessage: null));
-
+      AddGroupMembers event, Emitter<GroupState> emit) async {
     try {
+      emit(state.copyWith(
+        isLoading: true,
+        errorMessage: null,
+        groups: state.groups,
+      ));
+
+      AppLogger.info('Finding users for numbers: ${event.memberNumbers}');
+
+      // Find user IDs for all phone numbers
+      final List<String> userIds = [];
+      for (final phoneNumber in event.memberNumbers) {
+        try {
+          final userId = await repository.findUserByPhone(phoneNumber);
+          userIds.add(userId);
+          AppLogger.debug('Found user $userId for number $phoneNumber');
+        } catch (e) {
+          AppLogger.error('Failed to find user for number $phoneNumber: $e');
+          // Continue with other numbers even if one fails
+        }
+      }
+
+      if (userIds.isEmpty) {
+        throw Exception('No valid users found from the provided phone numbers');
+      }
+
+      AppLogger.info('Adding members to group ${event.groupId}: $userIds');
+
+      // Add members to group
       await repository.addGroupMembers(
         groupId: event.groupId,
-        memberIds: event.memberIds,
+        memberIds: userIds,
       );
 
-      final updatedGroup = state.selectedGroup?.copyWith(
-        memberIds: [...state.selectedGroup!.memberIds, ...event.memberIds],
-      );
+      // Fetch updated group details to get latest member list
+      final updatedGroup = await repository.getGroupDetails(event.groupId);
+      AppLogger.success(
+          'Members added successfully. Group now has ${updatedGroup.id} members');
 
+      // // Update state with new group details
       emit(state.copyWith(
         isLoading: false,
         selectedGroup: updatedGroup,
+        groups: state.groups
+            .map((g) => g.id == updatedGroup.id ? updatedGroup : g)
+            .toList(),
+        errorMessage: null,
       ));
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('Failed to add members: $e');
+      AppLogger.error('Stack trace: $stackTrace');
+
       emit(state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to add members: ${e.toString()}',
+        groups: state.groups,
       ));
     }
   }

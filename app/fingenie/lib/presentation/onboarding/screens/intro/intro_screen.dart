@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:fingenie/data/auth/auth_repository.dart';
 import 'package:fingenie/data/groups/group_repository.dart';
+import 'package:fingenie/presentation/auth/bloc/login_bloc/login_bloc.dart';
+import 'package:fingenie/presentation/auth/screens/login.dart';
 import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
 import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
-import 'package:fingenie/presentation/home/screens/home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -29,36 +31,85 @@ class _IntroScreenState extends State<IntroScreen> {
     final prefs = await SharedPreferences.getInstance();
     final hasSeenIntro = prefs.getBool('hasSeenIntro') ?? false;
 
-    if (hasSeenIntro && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => MultiBlocProvider(
-            providers: [
-              BlocProvider(
-                create: (context) => ExpenseBloc(),
+    if (!mounted) return;
+    if (!hasSeenIntro) return;
+
+    final apiUrl = dotenv.env['API_URL'] ?? '';
+    final authRepository = AuthRepository();
+    final groupRepository = GroupRepository(
+      dio: Dio(),
+      apiUrl: apiUrl,
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MultiBlocProvider(
+          providers: [
+            BlocProvider<ExpenseBloc>(
+              create: (context) => ExpenseBloc(),
+            ),
+            BlocProvider<LoginBloc>(
+              create: (context) => LoginBloc(
+                authRepository: authRepository,
+                dio: Dio(),
               ),
-              BlocProvider(
-                create: (context) => GroupBloc(
-                    repository: GroupRepository(
-                        dio: Dio(), apiUrl: dotenv.env['API_URL'] ?? ''),
-                    apiUrl: dotenv.env['API_URL'] ?? ''),
+            ),
+            BlocProvider<GroupBloc>(
+              create: (context) => GroupBloc(
+                repository: groupRepository,
+                apiUrl: apiUrl,
               ),
-            ],
-            child: const HomeScreen(),
+            ),
+          ],
+          child: Builder(
+            builder: (context) => const LoginScreen(),
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 
   Future<void> _onIntroEnd(BuildContext context) async {
-    // Save that user has seen the intro
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('hasSeenIntro', true);
-    if (context.mounted) {
-      Navigator.of(context).pushReplacementNamed('/login');
-    }
+
+    if (!context.mounted) return;
+
+    final apiUrl = dotenv.env['API_URL'] ?? '';
+    final authRepository = AuthRepository();
+    final groupRepository = GroupRepository(
+      dio: Dio(),
+      apiUrl: apiUrl,
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MultiBlocProvider(
+          providers: [
+            BlocProvider<ExpenseBloc>(
+              create: (context) => ExpenseBloc(),
+            ),
+            BlocProvider<LoginBloc>(
+              create: (context) => LoginBloc(
+                authRepository: authRepository,
+                dio: Dio(),
+              ),
+            ),
+            BlocProvider<GroupBloc>(
+              create: (context) => GroupBloc(
+                repository: groupRepository,
+                apiUrl: apiUrl,
+              ),
+            ),
+          ],
+          child: Builder(
+            builder: (context) => const LoginScreen(),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -97,9 +148,9 @@ class _IntroScreenState extends State<IntroScreen> {
     return IntroductionScreen(
       pages: [
         PageViewModel(
-          title: "Track Your Expenses",
+          title: "Smart Expense Tracking",
           body:
-              "Keep track of your spending habits and stay on top of your finances with easy expense tracking.",
+              "Take control of your finances with AI-powered expense tracking",
           image: _buildImage('expense_tracking.json'),
           decoration: PageDecoration(
             titleTextStyle: titleStyle ?? const TextStyle(),
@@ -109,10 +160,9 @@ class _IntroScreenState extends State<IntroScreen> {
           ),
         ),
         PageViewModel(
-          title: "Smart Analytics",
-          body:
-              "Get insights into your spending patterns with detailed analytics and visualization tools.",
-          image: _buildImage('analytics.json'),
+          title: "Hassle-free Group Expenses",
+          body: "Split bills instantly, settle up smoothly",
+          image: _buildImage('2.json'),
           decoration: PageDecoration(
             titleTextStyle: titleStyle ?? const TextStyle(),
             bodyTextStyle: bodyStyle ?? const TextStyle(),
@@ -121,10 +171,9 @@ class _IntroScreenState extends State<IntroScreen> {
           ),
         ),
         PageViewModel(
-          title: "Split Expenses",
-          body:
-              "Easily split bills and expenses with friends and family. Keep track of who owes what.",
-          image: _buildImage('split_bills.json'),
+          title: "Your AI Financial Assistant",
+          body: "Get personalized insights and chat with FinGenie.",
+          image: _buildImage('5.json'),
           decoration: PageDecoration(
             titleTextStyle: titleStyle ?? const TextStyle(),
             bodyTextStyle: bodyStyle ?? const TextStyle(),
@@ -133,10 +182,20 @@ class _IntroScreenState extends State<IntroScreen> {
           ),
         ),
         PageViewModel(
-          title: "Secure & Private",
-          body:
-              "Your financial data is encrypted and secure. We prioritize your privacy and data protection.",
+          title: "Bank-grade Security",
+          body: "Your data is encrypted and secure.",
           image: _buildImage('security.json'),
+          decoration: PageDecoration(
+            titleTextStyle: titleStyle ?? const TextStyle(),
+            bodyTextStyle: bodyStyle ?? const TextStyle(),
+            bodyPadding: const EdgeInsets.symmetric(horizontal: 16),
+            imagePadding: const EdgeInsets.only(top: 40),
+          ),
+        ),
+        PageViewModel(
+          title: "Gamified Personal Finance",
+          body: "Master personal finance through interactive experiences.",
+          image: _buildImage('6.json'),
           decoration: PageDecoration(
             titleTextStyle: titleStyle ?? const TextStyle(),
             bodyTextStyle: bodyStyle ?? const TextStyle(),
@@ -168,7 +227,7 @@ class _IntroScreenState extends State<IntroScreen> {
         ),
       ),
       done: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: AppColors.primary,
           borderRadius: BorderRadius.circular(30),
@@ -176,9 +235,7 @@ class _IntroScreenState extends State<IntroScreen> {
         child: Text(
           'Get Started',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
         ),
       ),
       curve: Curves.fastLinearToSlowEaseIn,

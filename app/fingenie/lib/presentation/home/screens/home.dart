@@ -4,7 +4,7 @@ import 'package:fingenie/presentation/activity/screens/activity_screen.dart';
 import 'package:fingenie/presentation/groups/bloc/group_bloc.dart';
 import 'package:fingenie/presentation/groups/bloc/group_events.dart';
 import 'package:fingenie/presentation/groups/bloc/group_state.dart';
-import 'package:fingenie/presentation/groups/screens/creat_group_modal.dart';
+import 'package:fingenie/presentation/groups/screens/create_group_modal.dart';
 import 'package:fingenie/presentation/groups/screens/group_screens.dart';
 import 'package:fingenie/presentation/home/bloc/expense_bloc.dart';
 import 'package:fingenie/presentation/ocr/screens/ocr.dart';
@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -55,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
             backgroundColor: Colors.grey[50],
             elevation: 0,
             title: const Text(
-              'Split wise.',
+              'Fin Genie.',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -74,12 +75,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: EdgeInsets.only(
                         bottom: MediaQuery.of(context).viewInsets.bottom,
                       ),
-                      child: BlocProvider(
-                        create: (context) => GroupBloc(
-                            apiUrl: dotenv.env['API_URL'] ?? '',
-                            repository: GroupRepository(
-                                dio: Dio(),
-                                apiUrl: dotenv.env['API_URL'] ?? '')),
+                      child: MultiBlocProvider(
+                        providers: [
+                          Provider<GroupRepository>(
+                            create: (context) => GroupRepository(
+                              dio: Dio(),
+                              apiUrl: dotenv.env['API_URL'] ?? '',
+                            ),
+                          ),
+                          BlocProvider<GroupBloc>(
+                            create: (context) => GroupBloc(
+                              repository: context.read<GroupRepository>(),
+                              apiUrl: dotenv.env['API_URL'] ?? '',
+                            ),
+                          ),
+                        ],
                         child: const CreateGroupModal(),
                       ),
                     ),

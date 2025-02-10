@@ -55,6 +55,10 @@ dependencies:
   introduction_screen:
   lottie:
   google_gemini:
+  fl_chart: ^0.65.0
+  confetti: ^0.7.0
+  country_picker:
+
 
 dev_dependencies:
   flutter_test:
@@ -84,6 +88,7 @@ flutter:
   assets:
     - assets/intro/
     - assets/icon/
+    - assets/onboarding/
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
