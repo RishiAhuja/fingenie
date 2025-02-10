@@ -1,94 +1,151 @@
 # FinGenie Repository Documentation
 
-## Authentication Repository
-The Authentication Repository is the central component for managing user authentication, session handling, and local user data persistence.
+## Table of Contents
+- [FinGenie Repository Documentation](#fingenie-repository-documentation)
+  - [Application Overview](#application-overview)
+    - [Key Technologies](#key-technologies)
+- [Flutter Application Architecture](#flutter-application-architecture)
+  - [Application Initialization](#application-initialization)
+  - [AuthRepository Guide](#authrepository-guide)
+  - [Group Repository](#group-repository)
+  - [Split Share Repository](#split-share-repository)
+  - [Share Repository](#share-repository)
+- [Services](#services)
+  - [Contact Service](#contact-service)
+  - [OCR Service](#ocr-service)
+- [BLoC Pattern Implementation](#bloc-pattern-implementation)
+  - [Authentication BLoCs](#authentication-blocs)
+  - [Contacts BLoC](#contacts-bloc)
+  - [Group BLoC](#group-bloc)
+  - [Expense BLoC](#expense-bloc)
+- [Development Setup](#development-setup)
+- [Contributing](#contributing)
+- [License](#license)
 
-### Function Breakdown
+## Application Overview
 
-#### `Future<void> _storeToken(String token)`
-This function securely stores the authentication token using SharedPreferences. The token is used for all authenticated API requests. If token storage fails, it logs the error but doesn't throw an exception to prevent app crashes.
+FinGenie is a not-so-sophisticated financial management application that combines expense tracking, group expense management, and AI-powered receipt scanning. The application uses Flutter for cross-platform development and follows clean architecture principles.
 
-#### `Future<String?> getStoredToken()`
-Retrieves the stored authentication token from SharedPreferences. Returns null if no token is found or if an error occurs during retrieval. This function is crucial for maintaining user sessions and is called before making any authenticated API requests.
+### Key Technologies
+- Flutter for UI development
+- BLoC pattern for state management
+- Hive for local storage
+- Dio for network requests
+- Google ML Kit for OCR
+- Gemini AI for receipt analysis
 
-#### `static Future<void> init()`
-Initializes the authentication repository by:
-1. Registering the UserModel adapter with Hive if not already registered
-2. Closing any open user box to prevent memory leaks
-3. Opening a new user box for data storage
-4. Debugging the initialization state and box contents
+# Flutter Application Archtitechture
 
-Usage Example:
+## Application Initialization
+
+
+### Main Application Setup
 ```dart
+void main() async {
+  try {
+    // Initialize core services
+    // Initialize repositories and services
+    // Determine initial screen based on auth state and attach app to root
+  } catch (e) {
+    throw;
+  }
+}
+```
+
+### Initialize core services
+```
+    WidgetsFlutterBinding.ensureInitialized();
+    await Hive.initFlutter();
+    await dotenv.load(fileName: ".env");
+```
+
+### Initialize repositories and services
+```
+    await ContactsService.initializeHive();
+    await AuthRepository.init();
+```
+
+### Determine initial screen based on auth state and attach app to root
+```
+final userBox = await Hive.openBox<UserModel>('userBox');
+    final currentUser = userBox.get('current_user');
+    
+    Widget initialScreen = currentUser?.isLoggedIn == true
+        ? HomeScreen()
+        : IntroScreen();
+        
+    runApp(MyApp(initialScreen: initialScreen));
+```
+
+## AuthRepository Guide
+
+### Key Features
+- User authentication (login/signup)
+- Token management
+- Local user data storage
+- Profile updates
+
+### Basic Usage
+
+### Initialize Repository
+```dart
+// In your main.dart or startup code
 await AuthRepository.init();
-// Repository is now ready for use
 ```
 
-#### `Future<UserModel> signUp(SignUpRequest request)`
-Handles the complete user registration process:
-1. Makes API request to `/api/v1/auth/signup` with user data
-2. Processes the response to extract token and user information
-3. Creates a new UserModel instance
-4. Stores the authentication token
-5. Saves user data to local Hive storage
-
-Error Handling:
-- Email already exists (409)
-- Invalid input data (400)
-- Network errors
-- Storage errors
-
-Usage Example:
+### Sign Up
 ```dart
-final signUpRequest = SignUpRequest(
-  email: 'user@example.com',
-  password: 'securePassword',
-  name: 'John Doe',
-  phoneNumber: '+1234567890'
-);
+final authRepo = AuthRepository();
 
 try {
-  final user = await authRepository.signUp(signUpRequest);
-  // Handle successful signup
+  final user = await authRepo.signUp(SignUpRequest(
+    email: 'user@example.com',
+    password: 'password123',
+    name: 'John Doe',
+    phoneNumber: '+1234567890'
+  ));
+  // User is now signed up and logged in
 } catch (e) {
-  // Handle error based on exception type
+  // Handle signup error
 }
 ```
 
-#### `Future<UserModel> login(LoginRequest request)`
-Manages user authentication:
-1. Sends credentials to `/api/v1/auth/login`
-2. Processes authentication response
-3. Creates and stores UserModel
-4. Manages token storage
-5. Updates local user data
-
-Error Handling:
-- Invalid credentials (401)
-- Invalid input (400)
-- Network issues
-- Storage failures
-
-Usage Example:
+### Login
 ```dart
-final loginRequest = LoginRequest(
-  email: 'user@example.com',
-  password: 'password123'
-);
-
 try {
-  final user = await authRepository.login(loginRequest);
-  // Proceed with logged in user
+  final user = await authRepo.login(LoginRequest(
+    email: 'user@example.com',
+    password: 'password123'
+  ));
+  // User is now logged in
 } catch (e) {
-  // Handle login failure
+  // Handle login error
 }
 ```
 
-#### `Future<void> logout()`
-Handles user session termination:
-1. Removes stored user data from Hive
-2. Clears authentication token
-3. Resets user state
+### Get Current User
+```dart
+final currentUser = authRepo.getCurrentUser();
+if (currentUser != null) {
+  print('User is logged in: ${currentUser.name}');
+}
+```
+
+### Update Profile
+```dart
+final updatedUser = await authRepo.updateProfileLocally(
+  currency: 'USD',
+  age: 25,
+  occupation: 'Developer',
+  monthlyIncome: 5000.0
+);
+```
+
+### Logout
+```dart
+await authRepo.logout();
+// User is now logged out
+```
 
 #### `UserModel? getCurrentUser()`
 Retrieves the currently logged-in user from local storage:
@@ -291,79 +348,536 @@ try {
 }
 ```
 
-## Testing Repositories
 
-### Auth Repository Testing
+## Share Repository
+
+The Share Repository manages expense sharing between users, including split calculations, balances, and settlements.
+
+### Function Breakdown
+
+#### `Future<List<SplitShare>> fetchSplitShares()`
+Retrieves all active share splits for the current user:
+1. Fetches all splits from `/api/v1/split-shares`
+2. Calculates pending amounts
+3. Processes payment status
+4. Returns formatted split list
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant ShareRepo
+    participant API
+    participant AuthRepo
+    
+    App->>ShareRepo: fetchSplitShares()
+    ShareRepo->>AuthRepo: getStoredToken()
+    AuthRepo-->>ShareRepo: token
+    ShareRepo->>API: GET /split-shares
+    API-->>ShareRepo: shares data
+    ShareRepo->>ShareRepo: Calculate totals
+    ShareRepo-->>App: List<SplitShare>
+```
+
+Usage Example:
 ```dart
-void main() {
-  late AuthRepository authRepository;
-  late MockDio mockDio;
-  
-  setUp(() {
-    mockDio = MockDio();
-    authRepository = AuthRepository(dio: mockDio);
-  });
-  
-  test('login success returns user model', () async {
-    // Test implementation
-  });
-  
-  test('signup handles email exists error', () async {
-    // Test implementation
-  });
+try {
+  final shareRepo = SplitShareRepository(dio: dio, apiUrl: apiUrl);
+  final shares = await shareRepo.fetchSplitShares();
+  // Process retrieved shares
+} catch (e) {
+  // Handle fetch error
 }
 ```
 
-### Group Repository Testing
+## Services
+
+### Contact Service
+The contact management system combines the ContactService for handling operations and the HiveContact adapter for data persistence. This system manages device contacts, local caching, and data synchronization.
+
+```mermaid
+graph TD
+    A[Device Contacts] -->|Read| B[Contact Service]
+    B -->|Convert| C[Contact Adapter]
+    C -->|Store| D[Hive Storage]
+    D -->|Retrieve| C
+    C -->|Convert Back| B
+    B -->|Display| E[App]
+```
+
+### Core Components
+
+#### 1. Contact Service
+Manages contact operations and synchronization:
+
 ```dart
-void main() {
-  late GroupRepository groupRepository;
-  late MockDio mockDio;
+class ContactsService {
+  static const String contactsBoxName = 'contacts_box';
+  static const String settingsBoxName = 'settings_box';
   
-  setUp(() {
-    mockDio = MockDio();
-    groupRepository = GroupRepository(
-      dio: mockDio,
-      apiUrl: 'test-api-url'
+  // Initialize the service
+  static Future<void> initializeHive() async {
+    await Hive.initFlutter();
+    Hive.registerAdapter(HiveContactAdapter());
+    Hive.registerAdapter(HivePhoneAdapter());
+    Hive.registerAdapter(HiveEmailAdapter());
+  }
+}
+```
+
+#### 2. Contact Adapter
+Handles data conversion and storage format:
+
+```dart
+@HiveType(typeId: 10)
+class HiveContact extends HiveObject {
+  @HiveField(0) late String id;
+  @HiveField(1) late String displayName;
+  @HiveField(2) late List<HivePhone> phones;
+  @HiveField(3) late List<HiveEmail> emails;
+}
+```
+
+### Key Operations
+
+#### 1. Fetching and Caching Contacts
+```dart
+// In Contact Service
+Future<List<Contact>> fetchAndCacheContacts() async {
+  if (await shouldRefreshContacts()) {
+    final contacts = await FlutterContacts.getContacts(
+      withProperties: true
     );
-  });
-  
-  test('fetchGroups returns list of groups', () async {
-    // Test implementation
-  });
-  
-  test('createGroup handles validation errors', () async {
-    // Test implementation
-  });
+    
+    // Convert and cache using adapter
+    for (var contact in contacts) {
+      final hiveContact = HiveContact.fromContact(contact);
+      await contactsBox.put(hiveContact.id, hiveContact);
+    }
+    return contacts;
+  }
+  return getCachedContacts();
 }
 ```
 
-## Best Practices
+#### 2. Converting Contacts
+```dart
+// In HiveContact Adapter
+factory HiveContact.fromContact(Contact contact) {
+  return HiveContact(
+    id: contact.id,
+    displayName: contact.displayName
+  )..phones = contact.phones
+      .map((p) => HivePhone(number: p.number))
+      .toList();
+}
+```
 
-### Error Handling
-1. Always use try-catch blocks
-2. Log errors using AppLogger
-3. Return meaningful error messages
-4. Handle network timeouts
-5. Implement retry logic for critical operations
+#### 3. Retrieving Cached Contacts
+```dart
+// In Contact Service
+Future<List<Contact>> getCachedContacts() async {
+  final contactsBox = Hive.box<HiveContact>(contactsBoxName);
+  return contactsBox.values
+    .map((hiveContact) => hiveContact.toContact())
+    .toList();
+}
+```
 
-### Data Persistence
-1. Use transactions for related operations
-2. Implement data validation
-3. Handle storage quota exceeded
-4. Implement data migration strategies
-5. Regular cleanup of outdated data
+### Usage Examples
 
-### Authentication
-1. Implement token refresh
-2. Secure token storage
-3. Handle session expiration
-4. Implement biometric authentication
-5. Regular security audits
+#### 1. Initialize System
+```dart
+// In your app initialization
+await ContactsService.initializeHive();
+final contactService = ContactsService();
+```
 
-### Performance
-1. Implement caching strategies
-2. Use batch operations where possible
-3. Optimize network requests
-4. Implement pagination
-5. Regular performance monitoring
+#### 2. Fetch and Display Contacts
+```dart
+try {
+  final contacts = await contactService.fetchAndCacheContacts();
+  // Use contacts in UI
+} catch (e) {
+  // Handle error
+}
+```
+
+#### 3. Access Cached Contacts
+```dart
+final cachedContacts = await contactService.getCachedContacts();
+// Use cached contacts
+```
+
+### Sync and Cache Management
+
+#### Check for Updates
+```dart
+if (await contactService.shouldRefreshContacts()) {
+  // Refresh contacts
+  await contactService.fetchAndCacheContacts();
+}
+```
+
+#### Clear Cache
+```dart
+await contactService.clearCachedContacts();
+// Cache is cleared, next fetch will get fresh data
+```
+
+
+### OCR Service
+
+#### Process Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ImagePicker
+    participant MLKit
+    participant Gemini
+    participant UI
+    
+    User->>ImagePicker: Select/Capture Image
+    ImagePicker->>MLKit: Process Image
+    MLKit->>Gemini: Extract Text
+    Gemini->>UI: Structured JSON
+    UI->>User: Display Results
+```
+
+### Key Steps
+
+#### 1. Image Selection
+- User can select image from gallery or capture with camera
+- Image is optimized (1800px width, 85% quality)
+- Selected image is displayed in UI
+
+#### 2. OCR Processing
+Uses Google ML Kit to:
+- Convert image to text
+- Extract text blocks
+- Combine lines into processable text
+
+#### 3. Gemini AI Analysis
+Sends text to Gemini with prompt to extract:
+- Store name
+- Date
+- Total amount
+- Individual items
+- Payment method
+
+#### 4. Response Format
+Gemini returns structured JSON:
+```json
+{
+  "store": "Store Name",
+  "date": "Purchase Date",
+  "total": "Total Amount",
+  "items": [
+    {
+      "name": "Item Name",
+      "price": "Price",
+      "quantity": "Quantity"
+    }
+  ],
+  "paymentMethod": "Payment Method"
+}
+```
+
+### Example Usage Flow
+1. User opens receipt scanner
+2. Selects/captures receipt image
+3. System processes image for text
+4. Gemini analyzes text for receipt data
+5. UI displays formatted receipt with:
+   - Store details
+   - Item list
+   - Total amount
+   - Payment information
+
+### Limitations
+- Requires clear image quality
+- Latin script support only
+- Requires internet for Gemini analysis
+- Depends on receipt format consistency
+
+## BLoC Pattern Implementation
+
+### Overview
+The application uses several BLoCs to manage state for different features:
+- Authentication (Login/Signup)
+- Contacts Management
+- Group Management
+- Expense Tracking
+
+```mermaid
+graph TD
+    A[UI Layer] -->|Events| B[BLoCs]
+    B -->|States| A
+    B -->|Requests| C[Repositories]
+    C -->|Data| B
+```
+
+### Authentication BLoCs
+
+#### Login BLoC
+Manages login state and authentication.
+
+```dart
+class LoginBloc extends Bloc<LoginEvent, LoginState> {
+  final AuthRepository _authRepository;
+  
+  // Handle login submission
+  Future<void> _onLoginSubmitted(event, emit) async {
+    emit(LoginLoading());
+    try {
+      final user = await _authRepository.login(request);
+      emit(LoginSuccess(user));
+    } catch (error) {
+      emit(LoginFailure(error.toString()));
+    }
+  }
+}
+```
+
+States:
+- `LoginInitial`: Initial state
+- `LoginLoading`: During authentication
+- `LoginSuccess`: After successful login
+- `LoginFailure`: When login fails
+
+Usage Example:
+```dart
+context.read<LoginBloc>().add(LoginSubmitted(
+  email: 'user@example.com',
+  password: 'password'
+));
+```
+
+#### SignUp BLoC
+Handles new user registration.
+
+```dart
+class SignUpBloc extends Bloc<SignUpEvent, SignUpState> {
+  Future<void> _onSignUpSubmitted(event, emit) async {
+    emit(SignUpLoading());
+    try {
+      final user = await _authRepository.signUp(request);
+      emit(SignUpSuccess(user));
+    } catch (error) {
+      emit(SignUpFailure(error.toString()));
+    }
+  }
+}
+```
+
+States:
+- `SignUpInitial`: Starting state
+- `SignUpLoading`: During registration
+- `SignUpSuccess`: Registration successful
+- `SignUpFailure`: Registration failed
+
+### Contacts BLoC
+Manages device contacts and synchronization.
+
+```dart
+class ContactsBloc extends Bloc<ContactsEvent, ContactsState> {
+  Future<void> _onFetchContacts(event, emit) async {
+    if (!await Permission.contacts.request().isGranted) {
+      emit(state.copyWith(errorMessage: 'Permission denied'));
+      return;
+    }
+    // Fetch and process contacts
+  }
+}
+```
+
+Events:
+- `FetchContactsEvent`: Load contacts
+- `RefreshContactsEvent`: Update contacts
+
+States tracked:
+- Loading state
+- Contact list
+- Error messages
+
+### Group BLoC
+Manages group operations and member management.
+
+```dart
+class GroupBloc extends Bloc<GroupEvent, GroupState> {
+  // Load groups
+  Future<void> _onLoadGroups(event, emit) async {
+    emit(state.copyWith(isLoading: true));
+    try {
+      final groups = await repository.fetchGroups();
+      emit(state.copyWith(groups: groups));
+    } catch (e) {
+      emit(state.copyWith(errorMessage: e.toString()));
+    }
+  }
+
+  // Create group
+  Future<void> _onCreateGroup(event, emit) async {
+    // Group creation logic
+  }
+
+  // Add members
+  Future<void> _onAddGroupMembers(event, emit) async {
+    // Member addition logic
+  }
+}
+```
+
+Events:
+- `LoadGroups`: Fetch groups
+- `CreateGroup`: Create new group
+- `AddGroupMembers`: Add members to group
+
+States tracked:
+- Group list
+- Selected group
+- Loading states
+- Error messages
+
+### Expense BLoC
+Manages expense tracking and settlements.
+
+```dart
+class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
+  Future<void> _onLoadExpenses(event, emit) async {
+    emit(ExpenseLoading());
+    try {
+      final expenses = await loadExpenses();
+      emit(ExpenseLoaded(expenses));
+    } catch (e) {
+      emit(ExpenseError(e.toString()));
+    }
+  }
+}
+```
+
+Events:
+- `LoadExpenses`: Fetch expenses
+- `AddExpense`: Create expense
+- `SettleExpense`: Settle expense
+
+States:
+- `ExpenseInitial`
+- `ExpenseLoading`
+- `ExpenseLoaded`
+- `ExpenseError`
+
+### Usage Examples
+
+#### Using Login BLoC
+```dart
+BlocBuilder<LoginBloc, LoginState>(
+  builder: (context, state) {
+    if (state is LoginLoading) {
+      return CircularProgressIndicator();
+    }
+    if (state is LoginSuccess) {
+      return HomeScreen();
+    }
+    return LoginForm();
+  },
+)
+```
+
+#### Managing Groups
+```dart
+BlocBuilder<GroupBloc, GroupState>(
+  builder: (context, state) {
+    if (state.isLoading) {
+      return LoadingIndicator();
+    }
+    return ListView.builder(
+      itemCount: state.groups.length,
+      itemBuilder: (context, index) {
+        return GroupTile(group: state.groups[index]);
+      },
+    );
+  },
+)
+```
+
+
+
+## Development Setup
+
+### Prerequisites
+- Flutter SDK (Latest stable version)
+- Android Studio / VS Code
+- Git
+- A Google Cloud Platform account (for ML Kit)
+- A Gemini API key
+
+### Environment Setup
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/fingenie.git
+cd fingenie
+```
+
+2. Install dependencies:
+```bash
+flutter pub get
+```
+
+3. Run build runner for code generation:
+```bash
+# One-time build
+flutter pub run build_runner build
+
+# Watch for changes
+flutter pub run build_runner watch
+
+# Force rebuild if conflicts occur
+flutter pub run build_runner build --delete-conflicting-outputs
+```
+
+4. Create a .env file in the root directory:
+```
+GEMINI_API_KEY=your_api_key_here
+API_BASE_URL=your_api_base_url
+```
+
+4. Run the development server:
+```bash
+flutter run
+```
+
+### Running Tests
+```bash
+flutter test
+```
+
+## Contributing
+
+We welcome contributions to FinGenie! Please follow these steps:
+
+1. Fork the repository
+2. Create a new branch: `git checkout -b feature/your-feature-name`
+3. Make your changes
+4. Run tests: `flutter test`
+5. Commit your changes: `git commit -m 'Add some feature'`
+6. Push to the branch: `git push origin feature/your-feature-name`
+7. Submit a pull request
+
+### Code Style
+- Follow the official Dart style guide
+- Use meaningful variable and function names
+- Write comments for complex logic
+- Include tests for new features
+
+### Pull Request Process
+1. Ensure your code follows the style guide
+2. Update the README.md with details of changes if needed
+3. The PR will be merged once you have the sign-off of at least one maintainer
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+
