@@ -53,20 +53,20 @@ void main() async {
 ```
 
 ### Initialize core services
-```
+```dart
     WidgetsFlutterBinding.ensureInitialized();
     await Hive.initFlutter();
     await dotenv.load(fileName: ".env");
 ```
 
 ### Initialize repositories and services
-```
+```dart
     await ContactsService.initializeHive();
     await AuthRepository.init();
 ```
 
-### Determine initial screen based on auth state and attach app to root
-```
+### Determine the initial screen based on the auth state and attach the app to root
+```dart
 final userBox = await Hive.openBox<UserModel>('userBox');
     final currentUser = userBox.get('current_user');
     
